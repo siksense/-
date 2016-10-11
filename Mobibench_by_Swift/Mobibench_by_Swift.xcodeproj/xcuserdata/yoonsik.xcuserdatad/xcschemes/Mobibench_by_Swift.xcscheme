@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D4F1DB821DA0E25400EF9D45"
-               BuildableName = "Mobibench_by_Swift.app"
+               BuildableName = "Mobibench.app"
                BlueprintName = "Mobibench_by_Swift"
                ReferencedContainer = "container:Mobibench_by_Swift.xcodeproj">
             </BuildableReference>
@@ -33,7 +33,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D4F1DB821DA0E25400EF9D45"
-            BuildableName = "Mobibench_by_Swift.app"
+            BuildableName = "Mobibench.app"
             BlueprintName = "Mobibench_by_Swift"
             ReferencedContainer = "container:Mobibench_by_Swift.xcodeproj">
          </BuildableReference>
@@ -56,7 +56,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D4F1DB821DA0E25400EF9D45"
-            BuildableName = "Mobibench_by_Swift.app"
+            BuildableName = "Mobibench.app"
             BlueprintName = "Mobibench_by_Swift"
             ReferencedContainer = "container:Mobibench_by_Swift.xcodeproj">
          </BuildableReference>
@@ -75,7 +75,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D4F1DB821DA0E25400EF9D45"
-            BuildableName = "Mobibench_by_Swift.app"
+            BuildableName = "Mobibench.app"
             BlueprintName = "Mobibench_by_Swift"
             ReferencedContainer = "container:Mobibench_by_Swift.xcodeproj">
          </BuildableReference>

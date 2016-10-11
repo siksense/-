@@ -1,0 +1,30 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "AFAD26926285A69E3DB43C2B5C595B0B0C6024D4",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "AFAD26926285A69E3DB43C2B5C595B0B0C6024D4" : 0,
+    "88881C12E6F95EBEE78DB1443E008E42B92FB867" : 0
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "E178BC6D-E222-4054-B405-28CDE7BCAD74",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "AFAD26926285A69E3DB43C2B5C595B0B0C6024D4" : "Graduation-Project\/",
+    "88881C12E6F95EBEE78DB1443E008E42B92FB867" : "Mobibench_ios\/"
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "Mobibench_in_Swift",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "Mobibench_in_Swift\/Mobibench_in_Swift.xcodeproj",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/ESOS-Lab\/Mobibench_ios.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "88881C12E6F95EBEE78DB1443E008E42B92FB867"
+    },
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/siksense\/Graduation-Project.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "AFAD26926285A69E3DB43C2B5C595B0B0C6024D4"
+    }
+  ]
+}

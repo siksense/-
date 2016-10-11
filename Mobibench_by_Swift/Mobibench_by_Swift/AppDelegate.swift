@@ -23,10 +23,11 @@ enum IOError: ErrorType {
 class AppDelegate: UIResponder, UIApplicationDelegate {
     // Property
     var window: UIWindow?
+    // file I/O에서 쓸 file의 크기를 256MB로 고정한다.
+    let fileSize = 1024 * 1024 * 256
     
     // 각 실험 변수들
     var sequentialIOSize = 1024 * 256
-    var fileSize = 1024 * 1024 * 32
     var mode = 0
     var dbSize = 100
     var dataSize = 64
@@ -37,9 +38,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     lazy var documentDirectory: NSURL = {
         NSFileManager.defaultManager().URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).last!
     }()
+    
+    
     // 위에서 정한 디렉토리에 db.sql의 이름으로 저장한다.
     lazy var dbPath: String = {
-        return self.documentDirectory.URLByAppendingPathComponent("db.sql").path!
+        return self.documentDirectory.URLByAppendingPathComponent("name.db").path!
     }()
     // DB와 연결
     lazy var db: COpaquePointer = {
@@ -47,29 +50,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         guard sqlite3_open(self.dbPath, &tmpDB) == SQLITE_OK else { return nil }
         return tmpDB
     }()
-    
     // 위에서 정한 디렉토리에 deck.txt 파일로 저장한다.
     lazy var filePath: String = {
         return self.documentDirectory.URLByAppendingPathComponent("deck.txt").path!
     }()
-    // 파일과 연결
-    lazy var fd: CInt = {
-        let fileCString = self.filePath.cStringUsingEncoding(NSString.defaultCStringEncoding())
-        return open(fileCString!, O_RDWR)
-    }()
-    // NSFileHandle형으로 변환해준다.
-    lazy var fileHandler: NSFileHandle = {
-        return NSFileHandle.init(fileDescriptor: self.fd)
-    }()
-    // Sequential I/O 측정에 사용할 I/O size 만큼의 데이터
-    lazy var cCharacterArray: [CChar] = [CChar].init(count: self.sequentialIOSize, repeatedValue: 65)
-    // NSString형으로 변환해준다.
-    lazy var sampleString: NSString = NSString.init(CString: self.cCharacterArray, encoding: NSASCIIStringEncoding)!
     
-    // Random I/O 측정에 사용할 Data size 만큼의 데이터
-    lazy var cCharacterArray2: [CChar] = [CChar].init(count: self.dataSize, repeatedValue: 66)
-    // NSString형으로 변환해준다.
-    lazy var sampleString2: NSString = NSString.init(CString: self.cCharacterArray2, encoding: NSASCIIStringEncoding)!
+    // Shuffle Algorithm
     // random으로 데이터를 쓰기 위해서 offset을 랜덤으로 설정한다.
     lazy var randomOffset: [Int] = {
         let offnum = self.fileSize / 4096
@@ -80,7 +66,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         var temp = 0
         var n = 0
         var m = 0
-        for _ in 0..<offnum/1024 {
+        for _ in 0..<offnum {
             n = Int(arc4random()) % offnum
             m = Int(arc4random()) % offnum
             
@@ -91,13 +77,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return arr
     }()
     
+    
     // Methods
     // DB에 테이블을 만들어 준비시킨다.
     func prepareDatabase() throws {
         guard db != nil else { throw SQLError.ConnectionError }
         defer { sqlite3_finalize(stmt) }
         
-        let query = "CREATE TABLE IF NOT EXISTS persons (pk PRIMARY KEY, name TEXT)"
+        let query = "CREATE TABLE IF NOT EXISTS persons (id INTEGER, name TEXT)"
         if sqlite3_prepare(db, query, -1, &stmt, nil) == SQLITE_OK {
             if sqlite3_step(stmt) == SQLITE_DONE {
                 return
@@ -107,8 +94,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     // DB에 데이터를 insert 시킨다.
-    func insertData(name: String) throws {
-        let query = "INSERT INTO persons (name) VALUES ('\(name)')"
+    func insertData(id: Int, name: String) throws {
+        let query = "INSERT INTO persons (id, name) VALUES (\(id), '\(name)')"
         if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
             return
         } else {
@@ -120,8 +107,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     // 데이터를 update 한다.
-    func updateData(name: String, oldName: String) throws {
-        let query = "UPDATE persons SET name = '\(name)' where name = '\(oldName)'"
+    func updateData(id: Int, newName: String) throws {
+        let query = "UPDATE persons SET name = '\(newName)' where id = \(id)"
         if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
             return
         } else {
@@ -133,8 +120,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     // 데이터를 DB에서 지운다.
-    func deleteData() throws {
-        let query = "DELETE FROM persons"
+    func deleteData(id: Int) throws {
+        let query = "DELETE FROM persons where id = \(id)"
         if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
             return
         } else {
@@ -179,7 +166,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
         // Override point for customization after application launch.
-        // 앱 실행시 DB를 만든다.
+        // 앱 실행시 DB를 준비시킨다.
         do {
             try prepareDatabase()
         } catch {

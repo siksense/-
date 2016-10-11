@@ -8,10 +8,11 @@
 
 import UIKit
 
-class SqliteResultsViewController: UIViewController {
+class SqliteResultViewController: UIViewController {
     @IBOutlet weak var insertResult: UILabel!
     @IBOutlet weak var updateResult: UILabel!
     @IBOutlet weak var deleteResult: UILabel!
+    @IBOutlet weak var journalMode: UILabel!
     
     var receivedInsertResult: String = ""
     var receivedUpdateResult: String = ""
@@ -20,9 +21,12 @@ class SqliteResultsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        let appDelegate = UIApplication.sharedApplication().delegate as! AppDelegate
+        
         insertResult.text = receivedInsertResult
         updateResult.text = receivedUpdateResult
         deleteResult.text = receivedDeleteResult
+        journalMode.text = appDelegate.getJournalMode().capitalizedString
     }
     
     override func didReceiveMemoryWarning() {

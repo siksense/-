@@ -9,11 +9,17 @@
 import UIKit
 
 class FileIOResultViewController: UIViewController {
-
+    @IBOutlet weak var sequentialResult: UILabel!
+    @IBOutlet weak var randomResult: UILabel!
+    
+    var receivedSequentialResult: String = ""
+    var receivedRandomResult: String = ""
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-
         // Do any additional setup after loading the view.
+        sequentialResult.text = receivedSequentialResult
+        randomResult.text = receivedRandomResult
     }
 
     override func didReceiveMemoryWarning() {
