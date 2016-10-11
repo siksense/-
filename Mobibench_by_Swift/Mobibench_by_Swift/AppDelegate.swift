@@ -14,189 +14,180 @@ enum SQLError: ErrorType {
     case OtherError
 }
 
+enum IOError: ErrorType {
+    case FileOpenError
+    case WriteError
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
+    // Property
     var window: UIWindow?
     
-    var dbName: String?
-    var dbPath: String?
-    var persons: NSMutableArray?
+    // 각 실험 변수들
+    var sequentialIOSize = 1024 * 256
+    var fileSize = 1024 * 1024 * 32
+    var mode = 0
+    var dbSize = 100
+    var dataSize = 64
     
-    func checkAndCreateDatabase() {
-        let fileManager = NSFileManager.defaultManager()
-        
-        if !(fileManager.fileExistsAtPath(dbPath!)) {
-            let dbPathFromApp = (NSBundle.mainBundle().resourcePath! as NSString).stringByAppendingPathComponent(dbName!)
+    var stmt: COpaquePointer = nil          // 쿼리를 저장할 객체
+    
+    // 파일과 DB를 저장할 디렉토리
+    lazy var documentDirectory: NSURL = {
+        NSFileManager.defaultManager().URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).last!
+    }()
+    // 위에서 정한 디렉토리에 db.sql의 이름으로 저장한다.
+    lazy var dbPath: String = {
+        return self.documentDirectory.URLByAppendingPathComponent("db.sql").path!
+    }()
+    // DB와 연결
+    lazy var db: COpaquePointer = {
+        var tmpDB: COpaquePointer = nil
+        guard sqlite3_open(self.dbPath, &tmpDB) == SQLITE_OK else { return nil }
+        return tmpDB
+    }()
+    
+    // 위에서 정한 디렉토리에 deck.txt 파일로 저장한다.
+    lazy var filePath: String = {
+        return self.documentDirectory.URLByAppendingPathComponent("deck.txt").path!
+    }()
+    // 파일과 연결
+    lazy var fd: CInt = {
+        let fileCString = self.filePath.cStringUsingEncoding(NSString.defaultCStringEncoding())
+        return open(fileCString!, O_RDWR)
+    }()
+    // NSFileHandle형으로 변환해준다.
+    lazy var fileHandler: NSFileHandle = {
+        return NSFileHandle.init(fileDescriptor: self.fd)
+    }()
+    // Sequential I/O 측정에 사용할 I/O size 만큼의 데이터
+    lazy var cCharacterArray: [CChar] = [CChar].init(count: self.sequentialIOSize, repeatedValue: 65)
+    // NSString형으로 변환해준다.
+    lazy var sampleString: NSString = NSString.init(CString: self.cCharacterArray, encoding: NSASCIIStringEncoding)!
+    
+    // Random I/O 측정에 사용할 Data size 만큼의 데이터
+    lazy var cCharacterArray2: [CChar] = [CChar].init(count: self.dataSize, repeatedValue: 66)
+    // NSString형으로 변환해준다.
+    lazy var sampleString2: NSString = NSString.init(CString: self.cCharacterArray2, encoding: NSASCIIStringEncoding)!
+    // random으로 데이터를 쓰기 위해서 offset을 랜덤으로 설정한다.
+    lazy var randomOffset: [Int] = {
+        let offnum = self.fileSize / 4096
+        var arr = [Int].init(count: offnum, repeatedValue: 0)
+        for i in 0..<offnum {
+            arr[i] = i
+        }
+        var temp = 0
+        var n = 0
+        var m = 0
+        for _ in 0..<offnum/1024 {
+            n = Int(arc4random()) % offnum
+            m = Int(arc4random()) % offnum
             
-            do {
-                try fileManager.copyItemAtPath(dbPathFromApp, toPath: dbPath!)
-            } catch {
-                print("Fail!")
+            temp = arr[n]
+            arr[n] = arr[m]
+            arr[m] = temp
+        }
+        return arr
+    }()
+    
+    // Methods
+    // DB에 테이블을 만들어 준비시킨다.
+    func prepareDatabase() throws {
+        guard db != nil else { throw SQLError.ConnectionError }
+        defer { sqlite3_finalize(stmt) }
+        
+        let query = "CREATE TABLE IF NOT EXISTS persons (pk PRIMARY KEY, name TEXT)"
+        if sqlite3_prepare(db, query, -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_DONE {
+                return
             }
         }
+        throw SQLError.QueryError
     }
     
-    func readFilesFromDatabase() {
-        var db: COpaquePointer = nil
-        
-        if persons == nil {
-            persons = NSMutableArray()
+    // DB에 데이터를 insert 시킨다.
+    func insertData(name: String) throws {
+        let query = "INSERT INTO persons (name) VALUES ('\(name)')"
+        if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
+            return
         } else {
-            persons!.removeAllObjects()
+            let errmsg = String.fromCString(sqlite3_errmsg(db))
+            print("error creating table: \(errmsg)")
         }
         
-        if sqlite3_open(self.dbPath!, &db) == SQLITE_OK {
-            let sqlStatement = "select * from persons"
-            var compiledStatement: COpaquePointer = nil
-            
-            if sqlite3_prepare(db, sqlStatement, -1, &compiledStatement, nil) == SQLITE_OK {
-                while sqlite3_step(compiledStatement) == SQLITE_ROW {
-                    let name = NSString.init(UTF8String: UnsafePointer<Int8>(sqlite3_column_text(compiledStatement, 1)))
-                    let telno = NSString.init(UTF8String: UnsafePointer<Int8>(sqlite3_column_text(compiledStatement, 2)))
-                    let email = NSString.init(UTF8String: UnsafePointer<Int8>(sqlite3_column_text(compiledStatement, 3)))
-                    
-                    let person = PersonData.init(name: name!, phoneNumber: telno!, mailAddr: email!)
-                    persons!.addObject(person)
-                }
-            }
-            sqlite3_finalize(compiledStatement)
-        }
-        sqlite3_close(db)
+        throw SQLError.QueryError
     }
     
-    func insertData(name: String?, phoneNumber: String?, mailAddr: String?) {
-        var db: COpaquePointer = nil
-        
-        if sqlite3_open(self.dbPath!, &db) == SQLITE_OK {
-            let query = "insert into persons (name, telno, email) values (\(name), \(phoneNumber), \(mailAddr))"
-            var error: UnsafeMutablePointer<Int8> = nil
-            
-            if sqlite3_exec(db, query, nil, nil, &error) != SQLITE_OK {
-                print(error)
-            }
+    // 데이터를 update 한다.
+    func updateData(name: String, oldName: String) throws {
+        let query = "UPDATE persons SET name = '\(name)' where name = '\(oldName)'"
+        if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
+            return
+        } else {
+            let errmsg = String.fromCString(sqlite3_errmsg(db))
+            print("error creating table: \(errmsg)")
         }
-        sqlite3_close(db)
         
-        self.readFilesFromDatabase()
+        throw SQLError.QueryError
     }
     
-    func updateData(name: String?, phoneNumber: String?, mailAddr: String?, oldName: String) {
-        var db: COpaquePointer = nil
-        
-        if sqlite3_open(self.dbPath!, &db) == SQLITE_OK {
-            let query = "update persons sets name = \(name), telno = \(phoneNumber), email = \(mailAddr)" +
-                "where name = \(oldName)"
-            var error: UnsafeMutablePointer<Int8> = nil
-            
-            if sqlite3_exec(db, query, nil, nil, &error) != SQLITE_OK {
-                print(error)
-            }
+    // 데이터를 DB에서 지운다.
+    func deleteData() throws {
+        let query = "DELETE FROM persons"
+        if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
+            return
+        } else {
+            let errmsg = String.fromCString(sqlite3_errmsg(db))
+            print("error creating table: \(errmsg)")
         }
-        sqlite3_close(db)
         
-        self.readFilesFromDatabase()
+        throw SQLError.QueryError
     }
     
-    func deleteData(name: String?, phoneNumber: String?, mailAddr: String?) {
-        var db: COpaquePointer = nil
+    // DB의 저널모드를 확인한다.
+    func getJournalMode() -> String {
+        let query = "PRAGMA JOURNAL_MODE"
+        var result: UnsafeMutablePointer<UnsafeMutablePointer<CChar>> = nil
         
-        if sqlite3_open(self.dbPath!, &db) == SQLITE_OK {
-            let query = "delete from persons where"
-            var error: UnsafeMutablePointer<Int8> = nil
-            
-            if sqlite3_exec(db, query, nil, nil, &error) != SQLITE_OK {
-                print(error)
+        if sqlite3_get_table(db, query, &result, nil, nil, nil) == SQLITE_OK {
+            guard let resultString = String(CString: result.successor().memory, encoding: NSUTF8StringEncoding) else {
+                print("Can't get journal mode")
+                abort()
             }
+            return resultString
+        } else {
+            guard let errmsg = String.fromCString(sqlite3_errmsg(db)) else {
+                print("Error!")
+                abort()
+            }
+            return errmsg
         }
-        sqlite3_close(db)
-        
-        self.readFilesFromDatabase()
     }
     
-    //    func journalGet() -> String {
-    //        var db: COpaquePointer = nil
-    //        var query2: UnsafeMutablePointer<UnsafeMutablePointer<Int8>> = nil
-    //
-    //        if sqlite3_open(dbPath!, &db) == SQLITE_OK {
-    //            let query = "pragma journal_mode;"
-    //            let row: UnsafeMutablePointer<Int32> = nil
-    //            let column: UnsafeMutablePointer<Int32> = nil
-    //            var error: UnsafeMutablePointer<Int8> = nil
-    //
-    //            if sqlite3_get_table(db, query, &query2, row, column, &error) != SQLITE_OK {
-    //                print(error)
-    //            }
-    //        }
-    //        sqlite3_close(db)
-    //
-    //
-    //    }
-    
-    /* var obj_db: COpaquePointer = nil
-     var stmt: COpaquePointer = nil
-     var persons: NSMutableArray?
-     
-     lazy var db: COpaquePointer = {
-     guard self.obj_db == nil else { return self.obj_db }
-     if sqlite3_open(self.db_path, &(self.obj_db)) == SQLITE_OK {
-     return self.obj_db
-     }
-     return nil
-     }()
-     
-     lazy var db_path: String = {
-     return self.doc_dir.URLByAppendingPathComponent("db.sqlite").path!
-     }()
-     
-     lazy var doc_dir: NSURL = {
-     NSFileManager.defaultManager()
-     .URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask)
-     .last!
-     }()
-     
-     func prepareDB() throws {
-     guard db != nil else { throw SQLError.ConnectionError }
-     defer { sqlite3_finalize(stmt) }
-     
-     let query = "CREATE TABLE IF NOT EXISTS test (num INTERGER)"
-     if sqlite3_prepare(db, query, -1, &stmt, nil) == SQLITE_OK {
-     if sqlite3_step(stmt) == SQLITE_DONE {
-     return
-     }
-     }
-     throw SQLError.QueryError
-     }
-     
-     func insertValue(value: Int32) throws {
-     guard db != nil else { throw SQLError.ConnectionError }
-     defer { sqlite3_finalize(stmt) }
-     
-     let query = "INSERT INTO test (num) VALUES (?)"
-     if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
-     if sqlite3_bind_int(stmt, 1, value) == SQLITE_OK {
-     if sqlite3_step(stmt) == SQLITE_DONE {
-     return
-     }
-     }
-     }
-     throw SQLError.QueryError
-     } */
+    // DB의 저널모드를 바꿔준다.
+    func changeJournalMode(mode: String) {
+        let query = "PRAGMA JOURNAL_MODE = '\(mode)'"
+        
+        if sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK {
+            return
+        } else {
+            let errmsg = String.fromCString(sqlite3_errmsg(db))
+            print("Error message: \(errmsg)")
+        }
+    }
     
     func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
         // Override point for customization after application launch.
-        dbName = "namecard.sql"
-        let documentPaths: NSURL =  NSFileManager.defaultManager().URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).last!
-        dbPath = documentPaths.URLByAppendingPathComponent(dbName!).path!
-        
-        self.checkAndCreateDatabase()
-        self.readFilesFromDatabase()
-        
-        /* do {
-         try self.prepareDB()
-         } catch {
-         print("Fail to initialize database")
-         abort()
-         } */
+        // 앱 실행시 DB를 만든다.
+        do {
+            try prepareDatabase()
+        } catch {
+            print("Fail to initialize database")
+            abort()
+        }
+        // 앱 실행시 File을 만든다.
+        NSFileManager.defaultManager().createFileAtPath(filePath, contents: nil, attributes: nil)
         
         return true
     }
@@ -209,7 +200,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationDidEnterBackground(application: UIApplication) {
         // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
         // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
-        //sqlite3_close(obj_db)
     }
     
     func applicationWillEnterForeground(application: UIApplication) {
@@ -222,6 +212,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func applicationWillTerminate(application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+        sqlite3_close(db)
+        
+        do {
+            try NSFileManager.defaultManager().removeItemAtPath(filePath)
+        } catch let e {
+            print(e)
+        }
+
     }
     
     
